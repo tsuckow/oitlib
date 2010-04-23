@@ -58,7 +58,7 @@ function integer oitMax;
 	input integer x;
 	input integer y;
 
-	oitMax = (x > y) ? x : y;
+	oitMax = x > y ? x : y;
 	
 endfunction
 

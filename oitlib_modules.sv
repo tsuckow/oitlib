@@ -1,4 +1,5 @@
 
+/*
 // ============================================================================
 // Generates a multiplexer.
 // COUNT:  The number of input vectors
@@ -7,18 +8,12 @@
 // select: A vector which selects between the given inputs
 // in:     A vector containing each input
 // out:    The multiplexed output
-// Author: Keith Majhor
-// Updated: Thomas Suckow
 // ============================================================================
-module oitMux #( parameter COUNT = 2, parameter WIDTH = 1 )
-(
-input      [oitBits( COUNT ) - 1:0] select,
-input      [COUNT * WIDTH  - 1:0] in,
-output reg [        WIDTH  - 1:0] out
+module kMux #( parameter COUNT = 2, parameter WIDTH = 1 )
+(	input      [kBits( COUNT ) - 1:0] select
+,   input      [COUNT * WIDTH  - 1:0] in
+,   output reg [        WIDTH  - 1:0] out
 );
-
-`include "oitlib_functions.sv"
-
 generate
 	always @ ( select or in )
 	for ( int i = 0; i < WIDTH; i += 1 )
@@ -27,51 +22,40 @@ generate
 		for ( int s = 0; s < COUNT; s += 1 )
 			tmp[s] = &
 			{   in[i + s * WIDTH]
-			,   select ^ ~s[oitBits( COUNT ) - 1:0]
+			,   select ^ ~s[kBits( COUNT ) - 1:0]
 			};
 
 		out[i] = |tmp;
 	end
 endgenerate
-
 endmodule
 
 // ============================================================================
 // Generates a decoder.
 // COUNT:  The number of states to decode
 // ACTIVE: Determines the active state
-// Author: Keith Majhor
-// Updated: Thomas Suckow
 // ============================================================================
-module oitDecoder #( parameter COUNT = 0, parameter ACTIVE = 1 )
-(
-input      [oitBits( COUNT ) - 1:0] in,
-output reg [COUNT          - 1:0]   out
+module kDecoder #( parameter COUNT = 0, parameter ACTIVE = 1 )
+(   input  [kBits( COUNT ) - 1:0] in,
+    output reg [COUNT          - 1:0] out
 );
-
-`include "oitlib_functions.sv"
-
 generate
 	always @ ( in )
 	for ( int i = 0; i < COUNT; i += 1 )
 		out[i] = ACTIVE
-			?  &{ in ^ ~i[oitBits( COUNT ) - 1:0] }  // Active High
-			: ~&{ in ^ ~i[oitBits( COUNT ) - 1:0] }; // Active Low
+			?  &{ in ^ ~i[kBits( COUNT ) - 1:0] }  // Active High
+			: ~&{ in ^ ~i[kBits( COUNT ) - 1:0] }; // Active Low
 endgenerate
-
 endmodule
 
 // ============================================================================
 // A Half Adder, calculates the sum of two bits.
 // in:  A vector containing each of the input values
 // out: A vector containing the sum and carry out bits
-// Author: Keith Majhor
-// Updated: Thomas Suckow
 // ============================================================================
-module oitHalfAdder
-(
-input  [1:0] in,
-output [1:0] out
+module kHalfAdder
+(   input  [1:0] in
+,   output [1:0] out
 );
 	assign out[0] = in[1] ^ in[0];
 	assign out[1] = in[1] & in[0];
@@ -81,13 +65,10 @@ endmodule
 // A Full Adder, calculates the sum of three bits.
 // in:  A vector containing each of the input values
 // out: A vector containing the sum and carry out bits
-// Author: Keith Majhor
-// Updated: Thomas Suckow
 // ============================================================================
-module oitFullAdder
-(
-input  [2:0] in,
-output [1:0] out
+module kFullAdder
+(   input  [2:0] in
+,   output [1:0] out
 );
 	assign out[0] = in[2] ^ in[1] ^ in[0];
 	assign out[1] = ( in[2] & in[1] )
@@ -95,53 +76,101 @@ output [1:0] out
 	              | ( in[1] & in[0] );
 endmodule
 
-module debug #(parameter a=0,parameter b=0) (output x);
+// ============================================================================
+// Generates an adder.
+// WIDTH_1: The width of the first input vector
+// WIDTH_0: The width of the second input vector
+//
+// in:      A vector containing the two input vectors
+// out:     A vector containing the sum of each input
+//
+// NOTE( Keith ):
+//     The output vector's width is 1 larger than the max of the two inputs.
+// ============================================================================
+module kAdder #( parameter WIDTH_1 = 0, parameter WIDTH_0 = 0 )
+(   input  [WIDTH_1 + WIDTH_0    - 1:0] in,
+    output [kMax( WIDTH_1, WIDTH_0 ):0] out
+);
+generate
+	parameter WIDTH_OUT = kMax( WIDTH_1, WIDTH_0 ) + 1;
 
-assign x = b;
+	wire                 temp;
+	wire [WIDTH_1 - 1:0] in_1;
+	wire [WIDTH_0 - 1:0] in_0;
+	assign { in_1, in_0 } = in;
 
+	if ( WIDTH_0 == 1 && WIDTH_1 == 1 )
+		kHalfAdder( in, out );
+	else if ( WIDTH_1 > WIDTH_0 )
+	begin
+		kAdder #( WIDTH_1 - 1, WIDTH_0 )
+		(   { in_1[WIDTH_1 - 2:0], in_0 }
+		,   { temp, out[WIDTH_OUT - 3:0] }
+		);
+		kHalfAdder
+		(   { in_1[WIDTH_1 - 1], temp }
+		,   out[WIDTH_OUT - 1:WIDTH_OUT - 2]
+		);
+	end
+	else if ( WIDTH_1 < WIDTH_0 )
+	begin
+		kAdder #( WIDTH_1, WIDTH_0 - 1 )
+		(   { in_1, in_0[WIDTH_0 - 2:0] }
+		,   { temp, out[WIDTH_OUT - 3:0] }
+		);
+		kHalfAdder
+		(   { in_0[WIDTH_0 - 1], temp }
+		,   out[WIDTH_OUT - 1:WIDTH_OUT - 2]
+		);
+	end
+	else
+	begin
+		kAdder #( WIDTH_1 - 1, WIDTH_0 - 1 )
+		(   { in_1[WIDTH_1 - 2:0], in_0[WIDTH_0 - 2:0] }
+		,   { temp, out[WIDTH_OUT - 3:0] }
+		);
+		kFullAdder
+		(   { in_1[WIDTH_1 - 1], in_0[WIDTH_0 - 1], temp }
+		,   out[WIDTH_OUT - 1:WIDTH_OUT - 2]
+		);
+	end
+endgenerate
 endmodule
 
 // ============================================================================
-// Generates an adder.
-// WIDTH_a: The width of the first input vector
-// WIDTH_b: The width of the second input vector
+// Generates a 7-segment display decoder.
+// ACTIVE: Determines the active state. This should be 1 for common-cathode
+//         displays and 0 for common-anode displays.
 //
-// a:       A vector containing the two input vectors
-// b:       A vector containing the two input vectors
-// out:     A vector containing the sum of each input
-//
-// Author: Thomas Suckow
+// in:     A vector containing binary coded hexidecimal digit
+// out:    The decoded output for the display, bits set to ACTIVE are on
 // ============================================================================
-module oitAdder #( parameter WIDTH_a = 0, parameter WIDTH_b = 0 )
-(
-input  [WIDTH_a - 1:0]                a,
-input  [WIDTH_b - 1:0]                b,
-output [oitMax( WIDTH_a, WIDTH_b ):0] out
+module k7SegDecoder #( parameter ACTIVE = 1 )
+(   input      [3:0] in
+,   output reg [7:0] out
 );
-
-`include "oitlib_functions.sv"
-
-parameter WIDTH_OUT = oitMax( WIDTH_a, WIDTH_b ) + 1;
-
-wire [WIDTH_OUT - 2:0] carry;
-genvar i;
-
 generate
-
-for (i=1; i < WIDTH_OUT - 1; i=i+1)
-begin
-  wire first, second;
-  assign first  = (i<WIDTH_a)?a[i]:1'b0;
-  assign second = (i<WIDTH_b)?b[i]:1'b0;
-	oitFullAdder fa( { carry[i-1], first, second }, { carry[i], out[i] } );
-end
-
+	always @ ( in )
+	case ( in )
+		4'h0:    out = { 8{ |ACTIVE } } ^ 8'b11000000;
+		4'h1:    out = { 8{ |ACTIVE } } ^ 8'b11111001;
+		4'h2:    out = { 8{ |ACTIVE } } ^ 8'b10100100;
+		4'h3:    out = { 8{ |ACTIVE } } ^ 8'b10110000;
+		4'h4:    out = { 8{ |ACTIVE } } ^ 8'b10011001;
+		4'h5:    out = { 8{ |ACTIVE } } ^ 8'b10010010;
+		4'h6:    out = { 8{ |ACTIVE } } ^ 8'b10000010;
+		4'h7:    out = { 8{ |ACTIVE } } ^ 8'b11111000;
+		4'h8:    out = { 8{ |ACTIVE } } ^ 8'b10000000;
+		4'h9:    out = { 8{ |ACTIVE } } ^ 8'b10010000;
+		4'hA:    out = { 8{ |ACTIVE } } ^ 8'b10001000;
+		4'hB:    out = { 8{ |ACTIVE } } ^ 8'b10000011;
+		4'hC:    out = { 8{ |ACTIVE } } ^ 8'b11000110;
+		4'hD:    out = { 8{ |ACTIVE } } ^ 8'b10100001;
+		4'hE:    out = { 8{ |ACTIVE } } ^ 8'b10000110;
+		4'hF:    out = { 8{ |ACTIVE } } ^ 8'b10001110;
+		default: out = 8'bxxxxxxxx;
+	endcase
 endgenerate
-
-oitHalfAdder fa0( { a[0], b[0] }, { carry[0], out[0] } );
-
-assign out[ WIDTH_OUT - 1 ] = carry[ WIDTH_OUT - 2 ];
-
 endmodule
 
 // ============================================================================
@@ -152,28 +181,22 @@ endmodule
 // clock: A clock
 // reset: Sets out to 0
 // out:   The current count
-// Author: Keith Majhor
-// Updated: Thomas Suckow
 // ============================================================================
-module oitBinCounter #( parameter COUNT = 0, parameter ASYNC = 1 )
-(
-input                               clock,
-input                               reset,
-output reg [oitBits( COUNT ) - 1:0] out
+module kBinCounter #( parameter COUNT = 0, parameter ASYNC = 1 )
+(   input                             clock
+,   input                             reset
+,   output reg [kBits( COUNT ) - 1:0] out
 );
-
-`include "oitlib_functions.sv"
-
 generate
-	parameter POWER_OF_2 = ( COUNT == oitPow( 2, oitLog( 2, COUNT ) ) );
-	parameter OUT_WIDTH  = oitBits( COUNT );
+	parameter POWER_OF_2 = ( COUNT == kPow( 2, kLog( 2, COUNT ) ) );
+	parameter OUT_WIDTH  = kBits( COUNT );
 	parameter LAST       = COUNT - 1;
 
 	wire [OUT_WIDTH - 1:0] inc;
 	wire [OUT_WIDTH - 1:0] next;
 	wire                   temp;
 
-	oitAdder #( 1, OUT_WIDTH ) a1 ( 1'b1, out, inc );
+	kAdder #( 1, OUT_WIDTH )a1( { 1'b1, out }, inc );
 
 	// Determine next output value
 	if ( POWER_OF_2 && ASYNC )
@@ -184,8 +207,8 @@ generate
 		else if ( ASYNC ) assign temp =         &( out ^ ~LAST );
 		else              assign temp = reset | &( out ^ ~LAST );
 
-		oitMux #( 2, OUT_WIDTH )
-		m1 (   temp
+		kMux #( 2, OUT_WIDTH )
+		m1(   temp
 		,   { { OUT_WIDTH{ 1'b0 } }, inc }
 		,   next
 		);
@@ -198,9 +221,7 @@ generate
 	else
 		always @ ( posedge clock )
 		out = next;
-		
 endgenerate
-
 endmodule
 
 // ============================================================================
@@ -211,23 +232,19 @@ endmodule
 // enable: Latches the input
 // in:     The input
 // out:    The output
-// Author: Keith Majhor
-// Updated: Thomas Suckow
 // ============================================================================
-module oitLatch #( parameter WIDTH = 0, parameter ACTIVE = 1 )
-(
-input                    clock,
-input                    enable,
-input      [WIDTH - 1:0] in,
-output reg [WIDTH - 1:0] out
+module kLatch #( parameter WIDTH = 0, parameter ACTIVE = 1 )
+(   input                    clock
+,   input                    enable
+,   input      [WIDTH - 1:0] in
+,   output reg [WIDTH - 1:0] out
 );
-
 generate
 	wire [WIDTH - 1:0] tmp;
-	oitMux #( 2, WIDTH ) lmux ( enable == ACTIVE, { in, out }, tmp );
+	kMux #( 2, WIDTH )( enable == ACTIVE, { in, out }, tmp );
 
     always @ ( posedge clock )
 		out = tmp;
 endgenerate
-
 endmodule
+*/
