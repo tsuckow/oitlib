@@ -1,4 +1,3 @@
-
 // ============================================================================
 // Generates a multiplexer.
 // COUNT:  The number of input vectors
@@ -231,3 +230,6 @@ generate
 endgenerate
 
 endmodule
+/* Filetype tags for editors.
+* vim: set filetype=verilog : 
+*/
