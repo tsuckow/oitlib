@@ -199,6 +199,7 @@ endmodule
 // ============================================================================
 // Generates a latch.
 // WIDTH:  The number of bits to latch
+// ACTIVE: Specifies active high or active low enable.
 //
 // clock:  A clock
 // enable: Latches the input
