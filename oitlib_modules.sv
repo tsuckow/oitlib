@@ -11,12 +11,10 @@
 // ============================================================================
 module oitMux #( parameter COUNT = 2, parameter WIDTH = 1 )
 (
-input      [oitBits( COUNT ) - 1:0] select,
+input      [oit.bits( COUNT ) - 1:0] select,
 input      [COUNT * WIDTH  - 1:0] in,
 output reg [        WIDTH  - 1:0] out
 );
-
-`include "oitlib_functions.sv"
 
 generate
 	always @ ( select or in )
@@ -26,7 +24,7 @@ generate
 		for ( int s = 0; s < COUNT; s += 1 )
 			tmp[s] = &
 			{   in[i + s * WIDTH]
-			,   select ^ ~s[oitBits( COUNT ) - 1:0]
+			,   select ^ ~s[oit.bits( COUNT ) - 1:0]
 			};
 
 		out[i] = |tmp;
@@ -44,18 +42,16 @@ endmodule
 // ============================================================================
 module oitDecoder #( parameter COUNT = 0, parameter ACTIVE = 1 )
 (
-input      [oitBits( COUNT ) - 1:0] in,
+input      [oit.bits( COUNT ) - 1:0] in,
 output reg [COUNT          - 1:0]   out
 );
-
-`include "oitlib_functions.sv"
 
 generate
 	always @ ( in )
 	for ( int i = 0; i < COUNT; i += 1 )
 		out[i] = ACTIVE
-			?  &{ in ^ ~i[oitBits( COUNT ) - 1:0] }  // Active High
-			: ~&{ in ^ ~i[oitBits( COUNT ) - 1:0] }; // Active Low
+			?  &{ in ^ ~i[oitLib.oitBits( COUNT ) - 1:0] }  // Active High
+			: ~&{ in ^ ~i[oitLib.oitBits( COUNT ) - 1:0] }; // Active Low
 endgenerate
 
 endmodule
@@ -115,12 +111,10 @@ module oitAdder #( parameter WIDTH_a = 0, parameter WIDTH_b = 0 )
 (
 input  [WIDTH_a - 1:0]                a,
 input  [WIDTH_b - 1:0]                b,
-output [oitMax( WIDTH_a, WIDTH_b ):0] out
+output [oit.max( WIDTH_a, WIDTH_b ):0] out
 );
 
-`include "oitlib_functions.sv"
-
-parameter WIDTH_OUT = oitMax( WIDTH_a, WIDTH_b ) + 1;
+parameter WIDTH_OUT = oit.max( WIDTH_a, WIDTH_b ) + 1;
 
 wire [WIDTH_OUT - 2:0] carry;
 genvar i;
@@ -158,14 +152,12 @@ module oitBinCounter #( parameter COUNT = 0, parameter ASYNC = 1 )
 (
 input                               clock,
 input                               reset,
-output reg [oitBits( COUNT ) - 1:0] out
+output reg [oit.bits( COUNT ) - 1:0] out
 );
 
-`include "oitlib_functions.sv"
-
 generate
-	parameter POWER_OF_2 = ( COUNT == oitPow( 2, oitLog( 2, COUNT ) ) );
-	parameter OUT_WIDTH  = oitBits( COUNT );
+	parameter POWER_OF_2 = ( COUNT == oitLib.oitPow( 2, oitLib.oitLog( 2, COUNT ) ) );
+	parameter OUT_WIDTH  = oitLib.oitBits( COUNT );
 	parameter LAST       = COUNT - 1;
 
 	wire [OUT_WIDTH - 1:0] inc;
