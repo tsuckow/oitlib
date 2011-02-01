@@ -77,3 +77,6 @@ function integer oitMin;
 	oitMin = x < y ? x : y;
 	
 endfunction
+/* Filetype tags for editors.
+* vim: set filetype=verilog : 
+*/
