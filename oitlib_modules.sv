@@ -11,10 +11,12 @@
 // ============================================================================
 module oitMux #( parameter COUNT = 2, parameter WIDTH = 1 )
 (
-input      [oit.bits( COUNT ) - 1:0] select,
+input      [oitBits( COUNT ) - 1:0] select,
 input      [COUNT * WIDTH  - 1:0] in,
 output reg [        WIDTH  - 1:0] out
 );
+
+`include "oitConstant.sv"
 
 generate
 	always @ ( select or in )
@@ -24,7 +26,7 @@ generate
 		for ( int s = 0; s < COUNT; s += 1 )
 			tmp[s] = &
 			{   in[i + s * WIDTH]
-			,   select ^ ~s[oit.bits( COUNT ) - 1:0]
+			,   select ^ ~s[oitBits( COUNT ) - 1:0]
 			};
 
 		out[i] = |tmp;
@@ -42,16 +44,18 @@ endmodule
 // ============================================================================
 module oitDecoder #( parameter COUNT = 0, parameter ACTIVE = 1 )
 (
-input      [oit.bits( COUNT ) - 1:0] in,
+input      [oitBits( COUNT ) - 1:0] in,
 output reg [COUNT          - 1:0]   out
 );
+
+`include "oitConstant.sv"
 
 generate
 	always @ ( in )
 	for ( int i = 0; i < COUNT; i += 1 )
 		out[i] = ACTIVE
-			?  &{ in ^ ~i[oitLib.oitBits( COUNT ) - 1:0] }  // Active High
-			: ~&{ in ^ ~i[oitLib.oitBits( COUNT ) - 1:0] }; // Active Low
+			?  &{ in ^ ~i[oitBits( COUNT ) - 1:0] }  // Active High
+			: ~&{ in ^ ~i[oitBits( COUNT ) - 1:0] }; // Active Low
 endgenerate
 
 endmodule
@@ -111,10 +115,12 @@ module oitAdder #( parameter WIDTH_a = 0, parameter WIDTH_b = 0 )
 (
 input  [WIDTH_a - 1:0]                a,
 input  [WIDTH_b - 1:0]                b,
-output [oit.max( WIDTH_a, WIDTH_b ):0] out
+output [oitMax( WIDTH_a, WIDTH_b ):0] out
 );
 
-parameter WIDTH_OUT = oit.max( WIDTH_a, WIDTH_b ) + 1;
+`include "oitConstant.sv"
+
+parameter WIDTH_OUT = oitMax( WIDTH_a, WIDTH_b ) + 1;
 
 wire [WIDTH_OUT - 2:0] carry;
 genvar i;
@@ -152,17 +158,19 @@ module oitBinCounter #( parameter COUNT = 0, parameter ASYNC = 1 )
 (
 input                               clock,
 input                               reset,
-output reg [oit.bits( COUNT ) - 1:0] out
+output reg [oitBits( COUNT ) - 1:0] out
 );
 
+`include "oitConstant.sv"
+
 generate
-	parameter POWER_OF_2 = ( COUNT == oitLib.oitPow( 2, oitLib.oitLog( 2, COUNT ) ) );
-	parameter OUT_WIDTH  = oitLib.oitBits( COUNT );
+	parameter POWER_OF_2 = ( COUNT == oitPow( 2, oitLog( 2, COUNT ) ) );
+	parameter OUT_WIDTH  = oitBits( COUNT );
 	parameter LAST       = COUNT - 1;
 
-	wire [OUT_WIDTH - 1:0] inc;
-	wire [OUT_WIDTH - 1:0] next;
-	wire                   temp;
+	wire [OUT_WIDTH    :0] inc;
+	wire [OUT_WIDTH    :0] next;
+	
 
 	oitAdder #( 1, OUT_WIDTH ) a1 ( 1'b1, out, inc );
 
@@ -171,13 +179,14 @@ generate
 		assign next = inc;
 	else
 	begin
+	  wire                   temp;
 		if ( POWER_OF_2 ) assign temp = reset;
 		else if ( ASYNC ) assign temp =         &( out ^ ~LAST );
 		else              assign temp = reset | &( out ^ ~LAST );
 
-		oitMux #( 2, OUT_WIDTH )
+		oitMux #( 2, OUT_WIDTH+1 )
 		m1 (   temp
-		,   { { OUT_WIDTH{ 1'b0 } }, inc }
+		,   { { OUT_WIDTH+1{ 1'b0 } }, inc }
 		,   next
 		);
 	end
