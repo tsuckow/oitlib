@@ -231,6 +231,96 @@ generate
 endgenerate
 
 endmodule
+
+// ============================================================================
+// Generates a Hex to 7 segment decoder.
+// ACTIVE:  Determines that the outputs are active hight or active low.
+// COUNT:  The number of BCD inputs (4 bits wide each) to convert.
+// CODE0:  Sets the 7 bit output for this hex input.
+// CODE1:  Sets the 7 bit output for this hex input.
+// CODE2:  Sets the 7 bit output for this hex input.
+// CODE3:  Sets the 7 bit output for this hex input.
+// CODE4:  Sets the 7 bit output for this hex input.
+// CODE5:  Sets the 7 bit output for this hex input.
+// CODE6:  Sets the 7 bit output for this hex input.
+// CODE7:  Sets the 7 bit output for this hex input.
+// CODE8:  Sets the 7 bit output for this hex input.
+// CODE9:  Sets the 7 bit output for this hex input.
+// CODEA:  Sets the 7 bit output for this hex input.
+// CODEB:  Sets the 7 bit output for this hex input.
+// CODEC:  Sets the 7 bit output for this hex input.
+// CODED:  Sets the 7 bit output for this hex input.
+// CODEE:  Sets the 7 bit output for this hex input.
+// CODEF:  Sets the 7 bit output for this hex input.
+//
+// in:     The BCD input
+// out:    The the 7 segment output output
+// Author: Keith Majhor
+// Updated: Thomas Suckow
+// ============================================================================
+module oitHexTo7Seg #(
+	parameter ACTIVE = 1,
+	parameter COUNT = 1,
+	parameter CODE0 = 7'b1111110,
+	parameter CODE1 = 7'b0000110,
+	parameter CODE2 = 7'b1101101,
+	parameter CODE3 = 7'b1111001,
+	parameter CODE4 = 7'b0110011,
+	parameter CODE5 = 7'b1011011,
+	parameter CODE6 = 7'b1011111,
+	parameter CODE7 = 7'b1110000,
+	parameter CODE8 = 7'b1111111,
+	parameter CODE9 = 7'b1111011,
+	parameter CODEA = 7'b1110111,
+	parameter CODEB = 7'b0011111,
+	parameter CODEC = 7'b1001110,
+	parameter CODED = 7'b0111101,
+	parameter CODEE = 7'b1001111,
+	parameter CODEF = 7'b1000111
+)
+(
+input  wire [COUNT * 4 - 1:0] in,
+output wire [COUNT * 7 - 1:0] out
+);
+
+`include "oitConstant.sv"
+
+//always_comb
+//begin
+generate
+	genvar i;
+	for ( i = 0; i < COUNT; i += 1 )
+	begin
+		wire [3:0] tmpIn;
+		reg [6:0] tmpOut;
+		assign tmpIn=in[(i+1)*4 - 1 : i*4];
+		
+		always @ (tmpIn)
+			case (tmpIn)
+				4'h0	: tmpOut = CODE0;
+				4'h1	: tmpOut = CODE1;
+				4'h2	: tmpOut = CODE2;
+				4'h3	: tmpOut = CODE3;
+				4'h4	: tmpOut = CODE4;
+				4'h5	: tmpOut = CODE5;
+				4'h6	: tmpOut = CODE6;
+				4'h7	: tmpOut = CODE7;
+				4'h8	: tmpOut = CODE8;
+				4'h9	: tmpOut = CODE9;
+				4'hA	: tmpOut = CODEA;
+				4'hB	: tmpOut = CODEB;
+				4'hC	: tmpOut = CODEC;
+				4'hD	: tmpOut = CODED;
+				4'hE	: tmpOut = CODEE;
+				4'hF	: tmpOut = CODEF;
+				default	: tmpOut = {7{~ACTIVE}};
+			endcase
+		assign out[(i+1)*7 - 1: i*7]=(ACTIVE)?(tmpOut):(~tmpOut);
+	end
+endgenerate
+//end
+
+endmodule
 /* Filetype tags for editors.
 * vim: set filetype=verilog : 
 */
