@@ -144,6 +144,36 @@ assign out[ WIDTH_OUT - 1 ] = carry[ WIDTH_OUT - 2 ];
 endmodule
 
 // ============================================================================
+// Generates a clock divider.
+// INPUT: The input frequency.
+// OUTPUT: The desired output frequency
+// 
+// Needs some verification, might be off.
+// 
+// in: Input clock.
+// out: Output clock.
+// Author: Noah Bacon
+// ============================================================================
+module oitClockDivider #( parameter INPUT = 1, parameter OUTPUT = 1 )
+(
+	input wire		in,
+	output reg		out
+);
+
+`include "oitConstant.sv"
+
+generate
+	parameter COUNT = INPUT/OUTPUT/2;
+	wire [oitBits(COUNT) - 1 :0]count;
+	oitBinCounter #(.COUNT(COUNT)) 
+		counter (.clock(in),.reset(1'b0),.out(count));
+	always @ (posedge count[oitBits(COUNT)-1])
+		out=~out;
+endgenerate
+
+endmodule
+
+// ============================================================================
 // Generates a binary counter.
 // COUNT: The number of counts
 // ASYNC: Determines whether the reset is synchronous or asynchronous
@@ -255,8 +285,7 @@ endmodule
 //
 // in:     The BCD input
 // out:    The the 7 segment output output
-// Author: Keith Majhor
-// Updated: Thomas Suckow
+// Author: Noah Bacon
 // ============================================================================
 module oitHexTo7Seg #(
 	parameter ACTIVE = 1,
@@ -285,8 +314,6 @@ output wire [COUNT * 7 - 1:0] out
 
 `include "oitConstant.sv"
 
-//always_comb
-//begin
 generate
 	genvar i;
 	for ( i = 0; i < COUNT; i += 1 )
@@ -313,12 +340,11 @@ generate
 				4'hD	: tmpOut = CODED;
 				4'hE	: tmpOut = CODEE;
 				4'hF	: tmpOut = CODEF;
-				default	: tmpOut = {7{~ACTIVE}};
+				default	: tmpOut = (ACTIVE)?(7'h7F):(7'h00);
 			endcase
 		assign out[(i+1)*7 - 1: i*7]=(ACTIVE)?(tmpOut):(~tmpOut);
 	end
 endgenerate
-//end
 
 endmodule
 /* Filetype tags for editors.
