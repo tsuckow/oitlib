@@ -148,7 +148,8 @@ endmodule
 // INPUT: The input frequency.
 // OUTPUT: The desired output frequency
 // 
-// Needs some verification, might be off.
+// Important note: this totally isn't going to guarantee any phase offset 
+// between its input and output.  It could be anywhere.
 // 
 // in: Input clock.
 // out: Output clock.
@@ -163,12 +164,16 @@ module oitClockDivider #( parameter INPUT = 1, parameter OUTPUT = 1 )
 `include "oitConstant.sv"
 
 generate
-	parameter COUNT = INPUT/OUTPUT/2;
-	wire [oitBits(COUNT) - 1 :0]count;
-	oitBinCounter #(.COUNT(COUNT)) 
-		counter (.clock(in),.reset(1'b0),.out(count));
-	always @ (posedge count[oitBits(COUNT)-1])
-		out=~out;
+	parameter COUNT = INPUT/OUTPUT/2 -1;
+	if (COUNT>0)  begin
+		wire [oitBits(COUNT) - 1 :0]count;
+		oitBinCounter #(.COUNT(COUNT)) 
+			counter (.clock(in),.reset(1'b0),.out(count));
+		always @ (posedge count[oitBits(COUNT)-1])
+			out=~out;
+	end else begin
+		assign out=in;
+	end
 endgenerate
 
 endmodule
