@@ -168,12 +168,53 @@ generate
 	if (COUNT>0)  begin
 		wire [oitBits(COUNT) - 1 :0]count;
 		oitBinCounter #(.COUNT(COUNT)) 
-			counter (.clock(in),.reset(1'b0),.out(count));
+			counter (.clock(in),.reset(1'b0),.enable(1'b1),.out(count));
 		always @ (posedge count[oitBits(COUNT)-1])
 			out=~out;
 	end else begin
 		assign out=in;
 	end
+endgenerate
+
+endmodule
+
+// ============================================================================
+// Generates a dynamic clock divider.
+// WIDTH: Determines the width of the internal counter
+// ASYNC: Determines whether the reset is synchronous or asynchronous
+// 
+// This clock divider works off of a count provided at run time.
+// Important note: this totally isn't going to guarantee any phase offset 
+// between its input and output.  It could be anywhere.  When the clock 
+// period is odd then the output will be low for the odd clock cycle, it will 
+// be in the middle.
+// 
+// in: Input clock.
+// out: Output clock.
+// count: Clock will have a period of count+1 clocks.
+// Author: Noah Bacon
+// ============================================================================
+module oitDynamicClockDivider #( parameter WIDTH = 0, parameter ASYNC = 1 )
+(
+	input wire		reset,
+	input wire		in,
+	input wire [WIDTH - 1:0] count,
+	output reg		out
+);
+
+`include "oitConstant.sv"
+
+generate
+	wire [WIDTH - 1 :0]temp;
+	oitDynamicBinCounter #(.WIDTH(WIDTH),.ASYNC(ASYNC)) 
+		counter (
+			.clock(in),
+			.reset(reset),
+			.enable(1'b1),
+			.count(count),
+			.out(temp)
+	);
+	assign out=(|count)?(temp>{1'b0,count[WIDTH-1:1]}):(in);
 endgenerate
 
 endmodule
@@ -185,14 +226,17 @@ endmodule
 //
 // clock: A clock
 // reset: Sets out to 0
+// enable: Enables counting on clock.
 // out:   The current count
 // Author: Keith Majhor
 // Updated: Thomas Suckow
+// Updated: Noah Bacon
 // ============================================================================
 module oitBinCounter #( parameter COUNT = 0, parameter ASYNC = 1 )
 (
 input                               clock,
 input                               reset,
+input				    enable,
 output reg [oitBits( COUNT ) - 1:0] out
 );
 
@@ -227,20 +271,80 @@ generate
 	end
 
 	// Build Flip Flops
-	if ( ASYNC )
-		always @ ( posedge clock or posedge reset )
-		out = reset ? 0 : next;
-	else
+	if ( ASYNC ) begin
+		always @ ( posedge clock or posedge reset ) begin
+			if (reset) begin
+				out=0;
+			end else begin
+				out = enable ? next : out;
+			end
+		end
+	end else begin
 		always @ ( posedge clock )
-		out = next;
+			if (reset | enable) begin
+				out = next;
+			end else begin
+				out = out;
+			end
+	end
 		
 endgenerate
 
 endmodule
 
 // ============================================================================
+// Generates a dynamic binary counter.
+// WIDTH: Determines the width of the internal counter
+// ASYNC: Determines whether the reset is synchronous or asynchronous
+//
+// This counter uses a count provided at run time. Counts from [0,count] (it 
+// includes both 0 and count when it counts.
+// 
+// clock: A clock
+// reset: Sets out to 0
+// enable: Enables counting on clock.
+// count: Sets the current count (interval is from 0 to count inclusive).
+// out:   The current count
+// Author: Noah Bacon
+// ============================================================================
+module oitDynamicBinCounter #( parameter WIDTH = 0, parameter ASYNC = 1 )
+(
+	input  wire clock,
+	input  wire reset,
+	input  wire enable,
+	input  wire [WIDTH - 1:0] count,
+	output reg [WIDTH - 1:0] out
+);
+
+`include "oitConstant.sv"
+wire [WIDTH-1:0] next;
+
+assign next=(out<count)?(out+1):(0);
+
+// Build Flip Flops
+if ( ASYNC )
+	always @ ( posedge clock or posedge reset )
+		if (reset) begin
+			out=0;
+		end else begin
+			out = enable ? next : out;
+		end
+else
+	always @ ( posedge clock )
+		if (reset) begin
+			out=0;
+		end else begin
+			out = enable ? next : out;
+		end
+
+endmodule
+
+// ============================================================================
 // Generates a latch.
 // WIDTH:  The number of bits to latch
+// ASYNC:  Determines if the reset is asynchronus.
+// ACTIVE: Determines if the enable is active low or active high.
+// RESETPAT: The pattern of bits that the counter will be reset to.
 //
 // clock:  A clock
 // enable: Latches the input
@@ -248,10 +352,18 @@ endmodule
 // out:    The output
 // Author: Keith Majhor
 // Updated: Thomas Suckow
+// Updated: Noah Bacon
 // ============================================================================
-module oitLatch #( parameter WIDTH = 0, parameter ACTIVE = 1 )
+module oitLatch
+#(
+	parameter WIDTH = 0,
+	parameter ASYNC=1,
+	parameter ACTIVE = 1,
+	parameter RESETPAT = 0
+)
 (
 input                    clock,
+input			 reset,
 input                    enable,
 input      [WIDTH - 1:0] in,
 output reg [WIDTH - 1:0] out
@@ -261,8 +373,17 @@ generate
 	wire [WIDTH - 1:0] tmp;
 	oitMux #( 2, WIDTH ) lmux ( enable == ACTIVE, { in, out }, tmp );
 
-    always @ ( posedge clock )
-		out = tmp;
+	if (ASYNC) begin
+		always @ ( posedge clock or posedge reset)
+			if (reset) begin
+				out = RESETPAT;
+			end else begin
+				out = tmp;
+			end
+	end else begin
+		always @ ( posedge clock )
+			out = (reset)?(RESETPAT):(tmp);
+	end
 endgenerate
 
 endmodule
